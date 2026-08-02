@@ -46,9 +46,9 @@
   "Stream for serial output")
 
 (defun serial-begin (&optional (baud-rate 9600))
-  "Initialize serial communication"
-  (setf *serial-enabled* t)
-  (when *serial-enabled*
+  "Initialize serial communication, announcing it only on the first call"
+  (unless *serial-enabled*
+    (setf *serial-enabled* t)
     (format *serial-output-stream* "Serial initialized at ~A baud~%" baud-rate)))
 
 (defun serial-print (message)

@@ -22,6 +22,10 @@
 (defparameter *avg-scan-time* 0
   "Average scan time")
 
+(defparameter *announce-init* t
+  "When true, PLC-INIT reports initialization on the serial output.
+Bind to NIL around a batch of runs to keep their output uncluttered.")
+
 (defun plc-init ()
   "Initialize PLC system"
   (setf *scan-value* nil)
@@ -34,7 +38,7 @@
   (clrhash *pin-states*)
   (clrhash *timers*)
   (clrhash *global-pulse-detectors*)
-  (when *serial-enabled*
+  (when (and *serial-enabled* *announce-init*)
     (serial-println "PLC System Initialized")))
 
 (defun plc-reset ()
