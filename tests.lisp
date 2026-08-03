@@ -125,27 +125,63 @@
 (simulate-input-change 1 0)
 (input 0)
 (and-not-bit 1)
-(output-coil 100)
+(output 100)
 (check "X0=1, X1=0 energises the coil" (read-pin-value 100) 1)
 (simulate-input-change 1 1)
 (input 0)
 (and-not-bit 1)
-(output-coil 100)
+(output 100)
 (check "X0=1, X1=1 de-energises the coil" (read-pin-value 100) 0)
 
 (section "coil forms read the accumulator without disturbing it")
 (plc-init)
 (set-pin-mode 100 :output)
 (setf *scan-value* 1)
-(check "output-coil returns the accumulator" (output-coil 100) 1)
-(check "accumulator survives output-coil" *scan-value* 1)
-(setf *scan-value* 0)
-(output-coil-not 100)
-(check "output-coil-not inverts" (read-pin-value 100) 1)
+(check "output returns the accumulator" (output 100) 1)
+(check "accumulator survives output" *scan-value* 1)
+;; The property that matters is that a multi-bit accumulator reaches OUTPUT-PWM
+;; intact, so OUTPUT must not normalise it on the way past. Checking this with
+;; an accumulator of 1 proves nothing, since normalising 1 gives back 1.
+(set-pin-mode 101 :output)
+(setf *scan-value* 512)
+(check "output returns a multi-bit accumulator" (output 100) 512)
+(check "multi-bit accumulator survives output" *scan-value* 512)
+(setf *scan-value* 700)
+(output-not 100)
+(check "multi-bit accumulator survives output-not" *scan-value* 700)
 (setf *scan-value* 1023)
-(output-coil-pwm 100)
-(check "output-coil-pwm scales 1023 to 255" (read-pin-value 100) 255)
-(check "accumulator survives output-coil-pwm" *scan-value* 1023)
+(output 100)
+(output-pwm 101)
+(check "a coil then PWM off the same analog reading" (read-pin-value 101) 255)
+(setf *scan-value* 0)
+(output-not 100)
+(check "output-not inverts" (read-pin-value 100) 1)
+(setf *scan-value* 1023)
+(output-pwm 100)
+(check "output-pwm scales 1023 to 255" (read-pin-value 100) 255)
+(check "accumulator survives output-pwm" *scan-value* 1023)
+
+(section "output uses upstream's = 1 guard on the accumulator")
+;; Upstream tests scanValue against 1 rather than for non-zero, so an analog
+;; reading that has not been reduced by COMPARE-* reads as off.
+(plc-init)
+(set-pin-mode 100 :output)
+(setf *scan-value* 512)
+(output 100)
+(check "512 reads as off, per upstream" (read-pin-value 100) 0)
+(setf *scan-value* 512)
+(output-not 100)
+(check "output-not with 512 energises" (read-pin-value 100) 1)
+
+(section "-value forms still take an explicit value")
+(plc-init)
+(set-pin-mode 100 :output)
+(check "output-value writes and loads" (output-value 100 1) 1)
+(check "output-value drove the pin" (read-pin-value 100) 1)
+(check "output-not-value inverts"
+       (progn (output-not-value 100 1) (read-pin-value 100)) 0)
+(check "output-pwm-value writes the raw value"
+       (progn (output-pwm-value 100 200) (read-pin-value 100)) 200)
 
 (section "load-value loads the accumulator directly")
 (check "load-value returns what it stored" (load-value 7) 7)
@@ -225,10 +261,23 @@
        (progn (set-pin-mode 5 :input) (pin-state-mode (get-pin-state 5))) :input)
 (check "simulate-input-change takes pin and value"
        (progn (simulate-input-change 5 1) (read-pin-value 5)) 1)
-(check "output still takes two arguments"
-       (progn (set-pin-mode 105 :output) (output 105 1) (read-pin-value 105)) 1)
-(check "output with a false value clears the pin"
-       (progn (output 105 nil) (read-pin-value 105)) 0)
+;; plclib-cl-web calls OUTPUT-VALUE, renamed from OUTPUT when OUTPUT took on
+;; upstream's single-argument form. Its behaviour is unchanged.
+(check "output-value takes pin and value"
+       (progn (set-pin-mode 105 :output) (output-value 105 1) (read-pin-value 105)) 1)
+(check "output-value with NIL clears the pin"
+       (progn (output-value 105 nil) (read-pin-value 105)) 0)
+;; The integer 0 is the case that matters: it is true in Common Lisp, so a
+;; plain (if value 1 0) energises the coil. plclib-cl-web reaches here through
+;; set-output, which passes 0 rather than NIL.
+(check "output-value with the integer 0 clears the pin"
+       (progn (output-value 105 1) (output-value 105 0) (read-pin-value 105)) 0)
+(check "output-not-value with the integer 0 energises the pin"
+       (progn (output-not-value 105 0) (read-pin-value 105)) 1)
+(check "output-value loads the accumulator"
+       (progn (output-value 105 1) *scan-value*) 1)
+(check "output-value with 0 loads the accumulator with 0"
+       (progn (output-value 105 0) *scan-value*) 0)
 (check "plc-reset is callable" (progn (plc-reset) t) t)
 (check "plc-scan is callable" (progn (plc-scan) t) t)
 

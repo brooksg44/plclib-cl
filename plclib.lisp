@@ -169,7 +169,7 @@ Bind to NIL around a batch of runs to keep their output uncluttered.")
 
 (defmacro coil (pin value)
   "Output coil"
-  `(output ,pin ,value))
+  `(output-value ,pin ,value))
 
 ;; Example ladder logic helper functions
 (defun start-stop-circuit (start-pin stop-pin output-pin memory-bit)

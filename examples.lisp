@@ -16,13 +16,13 @@
   ;; Simulate input changes and show output response
   (simulate-input-change 2 1)
   (let ((input-state (input 2)))
-    (output 13 input-state)
+    (output-value 13 input-state)
     (serial-print-value "Input Pin 2" input-state)
     (serial-print-value "Output Pin 13" (read-pin-value 13)))
 
   (simulate-input-change 2 0)
   (let ((input-state (input 2)))
-    (output 13 input-state)
+    (output-value 13 input-state)
     (serial-print-value "Input Pin 2" input-state)
     (serial-print-value "Output Pin 13" (read-pin-value 13))))
 
@@ -232,9 +232,9 @@
             (setf pump-running nil))))
 
       ;; Rung 3: Output assignments
-      (output 10 pump-running)     ; Pump motor
-      (output 11 alarm-state)      ; Alarm lamp
-      (output 12 pump-running)     ; Running lamp
+      (output-value 10 pump-running)     ; Pump motor
+      (output-value 11 alarm-state)      ; Alarm lamp
+      (output-value 12 pump-running)     ; Running lamp
 
       ;; Rung 4: Level monitoring with edge detection
       (when (falling-edge level-detector (input 2))

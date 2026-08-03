@@ -9,7 +9,7 @@
 ;;;;     (input 0)           ; load X0
 ;;;;     (and-not-bit 1)     ; AND with NOT X1
 ;;;;     (or-bit 2)          ; OR with X2
-;;;;     (output-coil 100)   ; drive the coil
+;;;;     (output 100)        ; drive the coil
 ;;;;
 ;;;; Upstream combines the accumulator with the operand using C bitwise
 ;;;; operators on unsigned int, not logical ones, and this port follows it.

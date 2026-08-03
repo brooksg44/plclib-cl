@@ -16,9 +16,9 @@
    #:output-not
    #:output-pwm
    #:load-value
-   #:output-coil
-   #:output-coil-not
-   #:output-coil-pwm
+   #:output-value
+   #:output-not-value
+   #:output-pwm-value
    #:set-pin-mode
    #:simulate-input-change
    #:simulate-analog-input-change

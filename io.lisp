@@ -7,7 +7,7 @@
 ;; These load the scan accumulator as well as returning the value, so that a
 ;; rung can be built by chaining them with the AND-BIT / OR-BIT family:
 ;;
-;;     (input 0) (and-not-bit 1) (output-coil 100)
+;;     (input 0) (and-not-bit 1) (output 100)
 ;;
 ;; The return value is unchanged from before, so callers that ignore
 ;; *SCAN-VALUE* and just use the result continue to work.
@@ -32,36 +32,48 @@ no way to tell that from a pin number, so it gets its own name."
   (setf *scan-value* value))
 
 ;; Output functions
-(defun output (pin-number value)
-  "Write digital output to pin"
-  (simulate-digital-write pin-number (if value 1 0))
-  (setf *scan-value* (if value 1 0)))
-
-(defun output-not (pin-number value)
-  "Write inverted digital output to pin"
-  (simulate-digital-write pin-number (if value 0 1))
-  (setf *scan-value* (if value 0 1)))
-
-;; Coil forms, driving a pin from the scan accumulator rather than an explicit
-;; value. These are what upstream's out(pin) does; the two-argument OUTPUT above
-;; is kept as-is because callers outside this system depend on its signature.
-(defun output-coil (pin-number)
-  "Drive PIN-NUMBER from the scan accumulator, leaving the accumulator alone"
+;;
+;; OUTPUT takes a pin alone and drives it from the scan accumulator, which is
+;; what upstream's out(pin) does, and returns the accumulator untouched so a
+;; rung can drive several coils and still reach OUTPUT-PWM with a full 0-1023
+;; reading intact.
+;;
+;; The -VALUE forms take an explicit value instead. They are what this port
+;; previously called OUTPUT, unchanged in behaviour including loading the
+;; accumulator, and exist for callers that compute a result some other way.
+(defun output (pin-number)
+  "Drive PIN-NUMBER from the scan accumulator (upstream: out)"
   (simulate-digital-write pin-number (if (= *scan-value* 1) 1 0))
   *scan-value*)
 
-(defun output-coil-not (pin-number)
-  "Drive PIN-NUMBER inverted from the scan accumulator"
+(defun output-not (pin-number)
+  "Drive PIN-NUMBER inverted from the scan accumulator (upstream: outNot)"
   (simulate-digital-write pin-number (if (= *scan-value* 1) 0 1))
   *scan-value*)
 
-(defun output-coil-pwm (pin-number)
-  "Drive PIN-NUMBER as PWM from the scan accumulator, scaled 0-1023 to 0-255"
+(defun output-pwm (pin-number)
+  "Drive PIN-NUMBER as PWM from the accumulator, scaling 0-1023 to 0-255"
   (simulate-analog-write pin-number (floor *scan-value* 4))
   *scan-value*)
 
-(defun output-pwm (pin-number value)
-  "Write PWM output to pin (0-255)"
+;; VALUE goes through PLC-TRUTHY rather than plain Lisp truth, so that a
+;; contact reading of 0 de-energises the pin. Testing it directly would take
+;; the true branch, since every non-NIL value is true in Common Lisp, and
+;; (output-value pin 0) would energise the coil.
+(defun output-value (pin-number value)
+  "Write VALUE to PIN-NUMBER, loading the scan accumulator with it"
+  (let ((bit (if (plc-truthy value) 1 0)))
+    (simulate-digital-write pin-number bit)
+    (setf *scan-value* bit)))
+
+(defun output-not-value (pin-number value)
+  "Write VALUE inverted to PIN-NUMBER, loading the scan accumulator"
+  (let ((bit (if (plc-truthy value) 0 1)))
+    (simulate-digital-write pin-number bit)
+    (setf *scan-value* bit)))
+
+(defun output-pwm-value (pin-number value)
+  "Write VALUE to PIN-NUMBER as PWM (0-255), loading the scan accumulator"
   (simulate-analog-write pin-number value)
   (setf *scan-value* value))
 
