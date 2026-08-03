@@ -276,4 +276,183 @@ Where the original is quirky, this port follows it rather than quietly correctin
 
 ## API Reference
 
-See the exported symbols in `package.lisp` for a complete API reference. All functions include documentation strings accessible via `(documentation 'function-name 'function)`.
+Every exported symbol, grouped by purpose. All functions carry documentation strings, reachable with `(documentation 'name 'function)`.
+
+### System control
+
+```lisp
+(plc-init)                     ; clear pins, timers, counters and the accumulator
+(plc-reset)                    ; same as plc-init
+(plc-start)                    ; mark the system running
+(plc-stop)                     ; mark it stopped
+(plc-scan)                     ; run one scan cycle, updating the statistics
+(plc-run-continuous 10)        ; set the cycle time and start
+(get-plc-status)               ; => plist of :running :scan-count :scan-time ...
+(print-plc-status)             ; print the same, to the serial stream
+```
+
+`plc-run-continuous` sets the cycle time and starts the system; it does not itself loop. Driving the scan is left to the caller, so wrap `plc-scan` in whatever loop or thread suits the application.
+
+### Pins and I/O
+
+```lisp
+(set-pin-mode 2 :input)        ; :input, :output or :input-pullup
+(read-pin-value 2)             ; => 0 or 1, without touching the accumulator
+
+(input 2)                      ; read a pin, loading the accumulator
+(input-not 2)                  ; read inverted
+(input-analog 3)               ; read 0-1023
+(load-value 1)                 ; load the accumulator directly
+
+(output 13)                    ; drive a pin from the accumulator
+(output-not 13)                ; drive it inverted
+(output-pwm 13)                ; drive as PWM, scaling 0-1023 to 0-255
+
+(output-value 13 1)            ; drive a pin from an explicit value
+(output-not-value 13 1)
+(output-pwm-value 13 200)
+```
+
+### Hardware simulation and diagnostics
+
+```lisp
+(simulate-input-change 2 1)          ; set what a digital pin will read
+(simulate-analog-input-change 3 500) ; the analog equivalent
+(get-pin-info 2)                     ; => plist of :pin :mode :current-value ...
+(list-active-pins)                   ; => sorted list of every pin touched
+(reset-all-pins)                     ; forget all pin state
+```
+
+### Scan accumulator
+
+```lisp
+*scan-value*                   ; the accumulator itself
+(get-scan-value)               ; read it
+(set-scan-value 1)             ; write it
+
+(and-bit 1)                    ; combine with a pin reading
+(and-not-bit 1)
+(or-bit 1)
+(or-not-bit 1)
+(xor-bit 1)
+
+(and-bit-value 1)              ; combine with a value
+(and-not-bit-value 1)
+(or-bit-value 1)
+(or-not-bit-value 1)
+(xor-bit-value 1)
+```
+
+See [The Scan Accumulator](#the-scan-accumulator) for what these do and how the two forms differ.
+
+### Logic and comparison
+
+```lisp
+(plc-truthy 0)                 ; => NIL. 0 and NIL are de-energised
+(plc-and 1 1)                  ; variadic, => generalised boolean
+(plc-or 0 1)
+(plc-xor 1 0)
+(plc-not 0)
+
+(compare-eq 5 5)  (compare-ne 5 6)
+(compare-gt 6 5)  (compare-ge 5 5)
+(compare-lt 5 6)  (compare-le 5 5)
+```
+
+### Timers
+
+Each takes an enable input, an identifier that keys its state, and a duration in milliseconds.
+
+```lisp
+(timer-on input 'my-timer 1000)              ; on after the input holds for 1s
+(timer-off input 'my-timer 1000)             ; off 1s after the input drops
+(timer-pulse input 'my-timer 1000)           ; a single 1s pulse
+(timer-cycle enable 'my-timer 500 500)       ; 500ms on, 500ms off
+```
+
+### Counters
+
+```lisp
+(let ((c (make-counter 10)))       ; preset defaults to 0
+  (counter-up c input)             ; count on a rising edge of INPUT
+  (counter-down c input)
+  (counter-reset c reset-input)    ; reset on a rising edge of RESET-INPUT
+  (counter-value c)                ; current count
+  (counter-preset c)               ; the preset
+  (counter-done-p c))              ; has the count reached the preset
+```
+
+### Shift registers
+
+```lisp
+(let ((s (make-shift-register 16)))          ; size defaults to 16
+  (shift-left s clock data)                  ; shift on a rising edge of CLOCK
+  (shift-right s clock data)
+  (shift-load s load-input value)
+  (shift-reset s reset-input)
+  (shift-bits s))                            ; the register contents
+```
+
+### Stack
+
+```lisp
+(let ((s (make-stack 16)))         ; max depth defaults to 16
+  (stack-push s t)
+  (stack-load s t)                 ; a synonym for stack-push
+  (stack-and s)                    ; pop two, push their AND
+  (stack-or s)
+  (stack-pop s)
+  (stack-empty-p s))
+```
+
+### Edge detection
+
+```lisp
+(let ((d (make-pulse-detector)))
+  (rising-edge d input)            ; => T on the scan the input goes high
+  (falling-edge d input))          ; => T on the scan it goes low
+```
+
+### Ladder logic helpers
+
+```lisp
+(contact-no 2)                     ; normally open, expands to (input 2)
+(contact-nc 3)                     ; normally closed, expands to (input-not 3)
+(coil 13 value)                    ; expands to (output-value 13 value)
+
+(plc-rung (plc-and (contact-no 2) (contact-nc 3))
+  (coil 13 t))
+
+(start-stop-circuit 8 9 10 memory-bit)   ; start pin, stop pin, output, memory
+```
+
+### Serial simulation
+
+```lisp
+(serial-begin 9600)                ; announces itself once
+(serial-print "text")
+(serial-println "text with a newline")
+(serial-print-value "Sensor" 512)  ; prints "Sensor: 512"
+```
+
+### A complete session
+
+```lisp
+(ql:quickload :plclib-cl)
+(in-package :plclib-cl)
+
+(plc-init)
+(serial-begin)
+(set-pin-mode 0 :input)
+(set-pin-mode 1 :input)
+(set-pin-mode 100 :output)
+
+(simulate-input-change 0 1)
+(simulate-input-change 1 0)
+
+(input 0)                ; load X0
+(and-not-bit 1)          ; AND with NOT X1
+(output 100)             ; drive the coil
+
+(read-pin-value 100)     ; => 1
+```

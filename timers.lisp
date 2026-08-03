@@ -20,7 +20,8 @@
 
 (defun timer-on (input timer-id duration-ms)
   "Timer ON: Output turns on after delay when input is true"
-  (let ((timer (get-timer timer-id))
+  (let ((input (plc-truthy input))
+        (timer (get-timer timer-id))
         (current-time (get-current-time-ms)))
     (cond
       ((and input (not (timer-state-active timer)))
@@ -42,7 +43,8 @@
 
 (defun timer-off (input timer-id duration-ms)
   "Timer OFF: Output turns off after delay when input becomes false"
-  (let ((timer (get-timer timer-id))
+  (let ((input (plc-truthy input))
+        (timer (get-timer timer-id))
         (current-time (get-current-time-ms)))
     (cond
       ((and (not input) (not (timer-state-active timer)))
@@ -64,7 +66,8 @@
 
 (defun timer-pulse (input timer-id duration-ms)
   "Timer PULSE: Output pulses for duration when input triggers"
-  (let ((timer (get-timer timer-id))
+  (let ((input (plc-truthy input))
+        (timer (get-timer timer-id))
         (current-time (get-current-time-ms)))
     (when (and input (not (timer-state-active timer)))
       ;; Start pulse
@@ -84,7 +87,8 @@
 
 (defun timer-cycle (enable timer-id on-duration-ms off-duration-ms)
   "Timer CYCLE: Cycles between on and off durations while enabled"
-  (let ((timer (get-timer timer-id))
+  (let ((enable (plc-truthy enable))
+        (timer (get-timer timer-id))
         (current-time (get-current-time-ms)))
     (if enable
         (progn

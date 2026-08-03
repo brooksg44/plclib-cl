@@ -44,6 +44,19 @@ raw 0-1023 reading, which COMPARE-* reduce back to 0 or 1.")
 (defparameter *scan-time* 0
   "Current scan time in milliseconds")
 
+(defun plc-truthy (input)
+  "True when INPUT represents an energised signal.
+
+PLC contacts are read as the integers 0 and 1, but every non-NIL value is true
+in Common Lisp, so 0 would otherwise count as energised. This treats 0 and NIL
+as de-energised and anything else as energised, which lets the rest of the
+library accept contact readings and booleans interchangeably.
+
+Defined here rather than in logic.lisp so that every later file can use it."
+  (cond ((null input) nil)
+        ((numberp input) (not (zerop input)))
+        (t t)))
+
 (defun get-current-time-ms ()
   "Get current time in milliseconds"
   #+sbcl

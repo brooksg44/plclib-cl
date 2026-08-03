@@ -2,16 +2,8 @@
 
 (in-package #:plclib-cl)
 
-(defun plc-truthy (input)
-  "True when INPUT represents an energised signal.
-
-PLC contacts are read as the integers 0 and 1, but every non-NIL value is true
-in Common Lisp, so 0 would otherwise count as energised. This treats 0 and NIL
-as de-energised and anything else as energised, which lets the functions below
-accept contact readings and booleans interchangeably."
-  (cond ((null input) nil)
-        ((numberp input) (not (zerop input)))
-        (t t)))
+;; PLC-TRUTHY lives in types.lisp, so that timers.lisp and the other files
+;; loaded before this one can use it too.
 
 (defun plc-and (&rest inputs)
   "PLC AND operation - returns true if all inputs are true"

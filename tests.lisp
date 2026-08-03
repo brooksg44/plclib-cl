@@ -33,6 +33,16 @@
     (format t "~&  FAIL ~a~%       got ~s, wanted ~s~%" label got want))
   (equal got want))
 
+(defmacro guarded (label &body body)
+  "Run BODY, turning an unhandled error into a failure.
+
+Without this an error part way through kills the script, so everything after
+it silently goes unrun and the summary never prints."
+  `(handler-case (progn ,@body)
+     (error (e)
+       (incf *failures*)
+       (format t "~&  ERROR in ~a: ~a~%" ,label e))))
+
 (defun report ()
   (format t "~&~%~d checks, ~d failures~%" *checks* *failures*)
   (format t "~a~%" (if (zerop *failures*) "ALL PASS" "FAILURES")))
@@ -245,6 +255,72 @@
 (simulate-input-change 11 1)   ; press stop
 (start-stop-circuit 10 11 12 t)
 (check "pressing stop drops the motor" (read-pin-value 12) 0)
+
+
+;;; ------------------------------------------------------------------
+;;; Timers
+;;;
+;;; The timer functions take contact readings, which are the integers 0 and 1.
+;;; TIMER-OFF stored its input straight into TIMER-STATE-OUTPUT, a slot typed
+;;; BOOLEAN, so (timer-off (input pin) ...) raised a type error. All four also
+;;; treated a reading of 0 as energised.
+;;; ------------------------------------------------------------------
+
+(section "timers accept contact readings, not just booleans")
+(guarded "timers with integer inputs"
+  (plc-init)
+  (check "timer-on with the integer 1" (progn (timer-on 1 'ta 1000) t) t)
+  (check "timer-off with the integer 1" (progn (timer-off 1 'tb 1000) t) t)
+  (check "timer-pulse with the integer 1" (progn (timer-pulse 1 'tc 1000) t) t)
+  (check "timer-cycle with the integer 1" (progn (timer-cycle 1 'td 500 500) t) t))
+
+(section "timers return booleans, whatever they are given")
+(guarded "timer return types"
+ (plc-init)
+ (dolist (name '(ta tb tc td))
+  (dolist (in '(0 1 nil t))
+    (let ((r (timer-on in name 1000)))
+      (check (format nil "timer-on ~s returns a boolean" in)
+             (and (member r '(t nil)) t) t)))))
+
+(section "a reading of 0 is de-energised, not energised")
+(guarded "zero is de-energised"
+ (plc-init)
+;; timer-off starts its delay when the input is false. Given 0, which is
+;; de-energised, it must start rather than follow the input as if it were true.
+(check "timer-off with 0 does not error" (progn (timer-off 0 'te 10000) t) t)
+(check "timer-off with 0 behaves as with NIL"
+       (progn (plc-init) (timer-off 0 'tf 10000))
+       (progn (plc-init) (timer-off nil 'tg 10000)))
+(check "timer-on with 0 behaves as with NIL"
+       (progn (plc-init) (timer-on 0 'th 10000))
+       (progn (plc-init) (timer-on nil 'ti 10000)))
+;; A single call does not separate these: an unnormalised 0 takes the "start
+;; the timer" branch, which also returns NIL. The difference only shows on the
+;; next scan, once the started timer has had a zero-length delay to expire.
+(check "timer-on with 0 never starts the delay"
+       (progn (plc-init) (timer-on 0 'tp 0) (timer-on 0 'tp 0)) nil)
+(check "timer-on with NIL agrees"
+       (progn (plc-init) (timer-on nil 'tq 0) (timer-on nil 'tq 0)) nil)
+;; timer-pulse and timer-cycle do separate on one call, since both energise
+;; their output the moment they are triggered.
+(check "timer-pulse with 0 does not fire" (progn (plc-init) (timer-pulse 0 'tr 10000)) nil)
+(check "timer-pulse with NIL agrees" (progn (plc-init) (timer-pulse nil 'ts 10000)) nil)
+(check "timer-cycle with 0 does not run" (progn (plc-init) (timer-cycle 0 'tt 500 500)) nil)
+(check "timer-cycle with 0 behaves as with NIL"
+       (progn (plc-init) (timer-cycle 0 'tj 500 500))
+       (progn (plc-init) (timer-cycle nil 'tk 500 500))))
+
+(section "a timer driven straight from a pin, as the README shows")
+(guarded "timer from a pin"
+ (plc-init)
+ (set-pin-mode 2 :input)
+(simulate-input-change 2 1)
+(check "timer-on from (input 2)" (progn (timer-on (input 2) 'tl 1000) t) t)
+(check "timer-off from (input 2)" (progn (timer-off (input 2) 'tm 1000) t) t)
+(simulate-input-change 2 0)
+(check "timer-on from a low pin" (progn (timer-on (input 2) 'tn 1000) t) t)
+(check "timer-off from a low pin" (progn (timer-off (input 2) 'to 1000) t) t))
 
 
 ;;; ------------------------------------------------------------------
