@@ -3,17 +3,33 @@
 (in-package #:plclib-cl)
 
 ;; Input functions
+;;
+;; These load the scan accumulator as well as returning the value, so that a
+;; rung can be built by chaining them with the AND-BIT / OR-BIT family:
+;;
+;;     (input 0) (and-not-bit 1) (output-coil 100)
+;;
+;; The return value is unchanged from before, so callers that ignore
+;; *SCAN-VALUE* and just use the result continue to work.
 (defun input (pin-number)
-  "Read digital input from pin"
-  (simulate-digital-read pin-number))
+  "Read digital input from pin, loading the scan accumulator"
+  (setf *scan-value* (simulate-digital-read pin-number)))
 
 (defun input-not (pin-number)
-  "Read inverted digital input from pin"
-  (if (zerop (simulate-digital-read pin-number)) 1 0))
+  "Read inverted digital input from pin, loading the scan accumulator"
+  (setf *scan-value* (if (zerop (simulate-digital-read pin-number)) 1 0)))
 
 (defun input-analog (pin-number)
-  "Read analog input from pin"
-  (simulate-analog-read pin-number))
+  "Read analog input from pin, loading the scan accumulator"
+  (setf *scan-value* (simulate-analog-read pin-number)))
+
+(defun load-value (value)
+  "Load VALUE directly into the scan accumulator.
+
+The Arduino original spells this as an overload of in() taking an unsigned
+int, used to read back a memory bit written with out(&bit). Common Lisp has
+no way to tell that from a pin number, so it gets its own name."
+  (setf *scan-value* value))
 
 ;; Output functions
 (defun output (pin-number value)
@@ -25,6 +41,24 @@
   "Write inverted digital output to pin"
   (simulate-digital-write pin-number (if value 0 1))
   (setf *scan-value* (if value 0 1)))
+
+;; Coil forms, driving a pin from the scan accumulator rather than an explicit
+;; value. These are what upstream's out(pin) does; the two-argument OUTPUT above
+;; is kept as-is because callers outside this system depend on its signature.
+(defun output-coil (pin-number)
+  "Drive PIN-NUMBER from the scan accumulator, leaving the accumulator alone"
+  (simulate-digital-write pin-number (if (= *scan-value* 1) 1 0))
+  *scan-value*)
+
+(defun output-coil-not (pin-number)
+  "Drive PIN-NUMBER inverted from the scan accumulator"
+  (simulate-digital-write pin-number (if (= *scan-value* 1) 0 1))
+  *scan-value*)
+
+(defun output-coil-pwm (pin-number)
+  "Drive PIN-NUMBER as PWM from the scan accumulator, scaled 0-1023 to 0-255"
+  (simulate-analog-write pin-number (floor *scan-value* 4))
+  *scan-value*)
 
 (defun output-pwm (pin-number value)
   "Write PWM output to pin (0-255)"

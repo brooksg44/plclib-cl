@@ -17,5 +17,6 @@
                (:file "pulse")
                (:file "logic")
                (:file "io")
+               (:file "bitops")
                (:file "plclib")
                (:file "examples")))

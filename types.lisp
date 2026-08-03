@@ -30,8 +30,10 @@
   (previous-value 0 :type (or digital-value analog-value))
   (last-update 0 :type (unsigned-byte 64)))
 
-(defparameter *scan-value* nil
-  "Global scan value for PLC operations")
+(defparameter *scan-value* 0
+  "Global scan accumulator, holding the result carried between rung
+operations. Digital operations leave 0 or 1 here; INPUT-ANALOG leaves a
+raw 0-1023 reading, which COMPARE-* reduce back to 0 or 1.")
 
 (defparameter *pin-states* (make-hash-table)
   "Hash table to store pin states")

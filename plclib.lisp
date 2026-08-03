@@ -28,7 +28,7 @@ Bind to NIL around a batch of runs to keep their output uncluttered.")
 
 (defun plc-init ()
   "Initialize PLC system"
-  (setf *scan-value* nil)
+  (setf *scan-value* 0)
   (setf *scan-time* (get-current-time-ms))
   (setf *plc-running* nil)
   (setf *scan-count* 0)

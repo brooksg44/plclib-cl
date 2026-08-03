@@ -2,21 +2,32 @@
 
 (in-package #:plclib-cl)
 
+(defun plc-truthy (input)
+  "True when INPUT represents an energised signal.
+
+PLC contacts are read as the integers 0 and 1, but every non-NIL value is true
+in Common Lisp, so 0 would otherwise count as energised. This treats 0 and NIL
+as de-energised and anything else as energised, which lets the functions below
+accept contact readings and booleans interchangeably."
+  (cond ((null input) nil)
+        ((numberp input) (not (zerop input)))
+        (t t)))
+
 (defun plc-and (&rest inputs)
   "PLC AND operation - returns true if all inputs are true"
-  (every #'identity inputs))
+  (every #'plc-truthy inputs))
 
 (defun plc-or (&rest inputs)
   "PLC OR operation - returns true if any input is true"
-  (some #'identity inputs))
+  (some #'plc-truthy inputs))
 
 (defun plc-xor (&rest inputs)
   "PLC XOR operation - returns true if odd number of inputs are true"
-  (oddp (count-if #'identity inputs)))
+  (oddp (count-if #'plc-truthy inputs)))
 
 (defun plc-not (input)
   "PLC NOT operation - returns logical inverse of input"
-  (not input))
+  (not (plc-truthy input)))
 
 (defun plc-nand (&rest inputs)
   "PLC NAND operation - NOT AND"

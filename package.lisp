@@ -15,6 +15,10 @@
    #:output
    #:output-not
    #:output-pwm
+   #:load-value
+   #:output-coil
+   #:output-coil-not
+   #:output-coil-pwm
    #:set-pin-mode
    #:simulate-input-change
    #:simulate-analog-input-change
@@ -64,7 +68,23 @@
    #:rising-edge
    #:falling-edge
    
+   ;; Scan accumulator bit operations
+   #:*scan-value*
+   #:get-scan-value
+   #:set-scan-value
+   #:and-bit
+   #:and-not-bit
+   #:or-bit
+   #:or-not-bit
+   #:xor-bit
+   #:and-bit-value
+   #:and-not-bit-value
+   #:or-bit-value
+   #:or-not-bit-value
+   #:xor-bit-value
+
    ;; Logic operations
+   #:plc-truthy
    #:plc-and
    #:plc-or
    #:plc-xor
